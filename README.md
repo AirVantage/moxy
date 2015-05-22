@@ -1,5 +1,5 @@
-mqtt-proxy
-==========
+Moxy
+====
 
 A general purpose reverse proxy for MQTT
 
