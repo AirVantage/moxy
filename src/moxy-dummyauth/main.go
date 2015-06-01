@@ -4,8 +4,6 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/airvantage/moxy"
-	"github.com/airvantage/moxy/plugin/auth"
 	"log"
 	"net"
 	"os"
@@ -36,8 +34,10 @@ func main() {
 }
 
 func server(c net.Conn) {
-	var authRequest auth.AuthCall
-
+	var authRequest struct {
+		Password string
+		UserName string
+	}
 	defer c.Close()
 
 	dec := gob.NewDecoder(c)
@@ -47,7 +47,17 @@ func server(c net.Conn) {
 		log.Fatal(err)
 	}
 
-	res := moxy.AuthResult{true, "", "iot.eclipse.org", 1883}
+	var res struct {
+		Success      bool
+		ErrorMessage string
+		Host         string
+		Port         int
+	}
+
+	res.Success = true
+	res.ErrorMessage = ""
+	res.Host = "iot.eclipse.org"
+	res.Port = 1883
 
 	enc := gob.NewEncoder(c)
 	err = enc.Encode(res)
