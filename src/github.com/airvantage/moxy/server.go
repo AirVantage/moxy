@@ -96,24 +96,20 @@ func (s *Server) serve(conn net.Conn) {
 		conAck.Write(conn)
 		return
 	}
-	conAck := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
-	conAck.TopicNameCompression = 0
-	conAck.ReturnCode = 0 // connection accepted!
-	conAck.Write(conn)
 
 	// try to connect & proxy
 	if debug {
 		fmt.Println("starting proxy to", authRes.Host, authRes.Port)
 	}
 
-	err = proxy(conn, authRes.Host, authRes.Port, connect)
+	err = proxy(conn, authRes.Host, authRes.Port, connect, authRes.Metadata)
 
 	if err != nil {
 		panic(err)
 	}
 }
 
-func proxy(con net.Conn, host string, port int, origConnect *packets.ConnectPacket) error {
+func proxy(con net.Conn, host string, port int, origConnect *packets.ConnectPacket, metadata map[string]interface{}) error {
 
 	c, err := net.Dial("tcp", host+":"+strconv.Itoa(port))
 	if err != nil {
@@ -167,12 +163,17 @@ func proxy(con net.Conn, host string, port int, origConnect *packets.ConnectPack
 
 	if conack.ReturnCode != 0 {
 		log.Printf("client connection refused by the broker")
+		conack.Write(c)
 		c.Close()
 		return nil
 	}
 	// connection received !
 	if debug {
 		fmt.Println("Conack", conack)
+	}
+
+	if err = conack.Write(c); err != nil {
+		return err
 	}
 
 	go proxifyStream(c, con)

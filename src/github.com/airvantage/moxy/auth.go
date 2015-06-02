@@ -10,4 +10,5 @@ type AuthResult struct {
 	ErrorMessage string
 	Host         string
 	Port         int
+	Metadata     map[string]interface{}
 }

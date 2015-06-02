@@ -2,60 +2,22 @@
 package auth
 
 import (
-	"bufio"
 	"encoding/gob"
 	"github.com/airvantage/moxy"
-	"io"
-	"net"
-	"os"
-	"os/exec"
+	"github.com/airvantage/moxy/plugin"
 )
 
 // A plugin for authentication, implements the Authenticator interface
 type AuthPlugin struct {
-	cmd *exec.Cmd
+	*plugin.Plugin
 }
 
 // NewAuthPlugin create a new authentication plugin using the provided system command
 func NewAuthPlugin(name string) *AuthPlugin {
-	res := new(AuthPlugin)
 
-	res.cmd = exec.Command(name, "/tmp/auth.sock")
-
-	// redirect stdout & stderr
-	stdout, err := res.cmd.StdoutPipe()
-	if err != nil {
-		panic(err)
-	}
-
-	stderr, err := res.cmd.StderrPipe()
-	if err != nil {
-		panic(err)
-	}
-
-	go fwd(stdout, os.Stdout)
-	go fwd(stderr, os.Stderr)
-
-	if err := res.cmd.Start(); err != nil {
-		panic(err)
-	}
-
-	// connect to the socket
-	return res
-}
-
-func fwd(in io.Reader, out io.Writer) {
-	r := bufio.NewReader(in)
-	for {
-		line, err := r.ReadBytes('\n')
-		if err != nil {
-			if err != io.EOF {
-				out.Write([]byte("AUTH> ERROR READING " + err.Error()))
-			}
-			break
-		}
-		out.Write([]byte("AUTH> " + string(line)))
-	}
+	var res AuthPlugin
+	res.Plugin = plugin.NewPlugin(name, "auth.sock")
+	return &res
 }
 
 // implements the Authenticator interface by communication with the plugin command
@@ -69,7 +31,7 @@ func (ap *AuthPlugin) AuthUser(connection, user, password string) (moxy.AuthResu
 	call.Password = password
 	call.UserName = user
 
-	c, err := net.Dial("unix", "/tmp/auth.sock")
+	c, err := ap.Dial()
 
 	if err != nil {
 		panic(err)
@@ -87,10 +49,11 @@ func (ap *AuthPlugin) AuthUser(connection, user, password string) (moxy.AuthResu
 		ErrorMessage string
 		Host         string
 		Port         int
+		Metadata     map[string]interface{}
 	}
 	err = dec.Decode(&result)
 	if err != nil {
-		return moxy.AuthResult{}, err
+		panic(err)
 	}
 	return result, nil
 }
