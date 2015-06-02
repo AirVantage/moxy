@@ -19,10 +19,11 @@ type Server struct {
 	listenStr string
 	listener  net.Listener
 	auth      Authenticator
+	filters   []MqttFilter
 }
 
 // NewServer create a new MQTT proxy server, provide the wanted authenticator
-func NewServer(dbg, trace bool, listen string, auth Authenticator) *Server {
+func NewServer(dbg, trace bool, listen string, auth Authenticator, filters []MqttFilter) *Server {
 	s := new(Server)
 	debug = dbg
 	s.trace = trace

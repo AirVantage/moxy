@@ -17,14 +17,16 @@ func NewFilterPlugin(name string, id string) *FilterPlugin {
 	return &res
 }
 
-func (fp *FilterPlugin) Filter(inPacket []byte, uplink bool) (outPacket []byte, backward []byte) {
+func (fp *FilterPlugin) Filter(inPacket []byte, uplink bool, metadata map[string]interface{}) (outPacket []byte, backward []byte) {
 
 	var call struct {
 		InPacket []byte
 		Uplink   bool
+		Metatada map[string]interface{}
 	}
 	call.InPacket = inPacket
 	call.Uplink = uplink
+	call.Metatada = metadata
 
 	c, err := fp.Dial()
 
