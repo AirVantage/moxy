@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git/packets"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -114,22 +116,29 @@ func (s *Server) serve(conn net.Conn) {
 		fmt.Println("starting proxy to", authRes.Host, authRes.Port)
 	}
 
-	err = s.proxy(conn, authRes.Host, authRes.Port, connect, authRes.Metadata)
+	conServer, err := net.Dial("tcp", authRes.Host+":"+strconv.Itoa(authRes.Port))
+	if err != nil {
+		panic(err)
+	}
+	if debug {
+		fmt.Println("connected")
+	}
+
+	err = s.proxy(conn, conServer, connect, authRes.Metadata)
 
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (s *Server) proxy(conClient net.Conn, host string, port int, origConnect *packets.ConnectPacket, metadata map[string]interface{}) error {
+func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.ConnectPacket, metadata map[string]interface{}) error {
 
-	conServer, err := net.Dial("tcp", host+":"+strconv.Itoa(port))
-	if err != nil {
-		return err
-	}
+	var logout io.Writer = ioutil.Discard
+
 	if debug {
-		fmt.Println("connected")
+		logout = os.Stdout
 	}
+	logger := log.New(logout, "PROXY "+conClient.RemoteAddr().String()+" == "+conServer.RemoteAddr().String(), log.Lshortfile)
 	// write a connect and wait a connack
 
 	connect := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
@@ -147,14 +156,14 @@ func (s *Server) proxy(conClient net.Conn, host string, port int, origConnect *p
 	connect.Qos = origConnect.Qos
 
 	if debug {
-		fmt.Println("connecting to", host, port)
+		logger.Println("sending MQTT CONNECT")
 	}
-	err = connect.Write(conServer)
+	err := connect.Write(conServer)
 	if err != nil {
 		return err
 	}
 	if debug {
-		fmt.Println("waiting conack for", host, port)
+		logger.Println("waiting CONACK")
 	}
 
 	// now response!
@@ -165,12 +174,12 @@ func (s *Server) proxy(conClient net.Conn, host string, port int, origConnect *p
 
 	conack, ok := cp.(*packets.ConnackPacket)
 	if !ok {
-		log.Printf("we want a Conack packet %v", cp)
+		logger.Println("we want a Conack packet ", cp)
 		conServer.Close()
 		return nil
 	}
 	if debug {
-		fmt.Println("Connack => ", conack)
+		logger.Println("Connack => ", conack)
 	}
 
 	// write the connack back to the client
@@ -179,34 +188,38 @@ func (s *Server) proxy(conClient net.Conn, host string, port int, origConnect *p
 	}
 
 	if conack.ReturnCode != 0 {
-		log.Printf("client connection refused by the upstream broker")
+		logger.Printf("client connection refused by the upstream broker")
 		conServer.Close()
 		return nil
 	}
 
-	fmt.Println("MQTT connect success for", host, port)
+	logger.Println("MQTT connect success")
 
 	// downstream proxify
-	go s.proxifyStream(conServer, conClient, false, metadata)
+	go s.proxifyStream(conServer, conClient, false, metadata, logger)
 
 	// upstream proxify
-	s.proxifyStream(conClient, conServer, true, metadata)
+	s.proxifyStream(conClient, conServer, true, metadata, logger)
 	return nil
 }
 
-func (s *Server) proxifyStream(reader io.Reader, writer io.Writer, upstream bool, metadata map[string]interface{}) {
+func (s *Server) proxifyStream(reader io.Reader,
+	writer io.Writer,
+	upstream bool,
+	metadata map[string]interface{},
+	logger *log.Logger) {
 
 	if debug {
 		if upstream {
-			log.Println("proxify upstream")
+			logger.Println("proxify upstream")
 		} else {
-			log.Println("proxify downstream")
+			logger.Println("proxify downstream")
 		}
 	}
 	defer func() {
 		if r := recover(); r != nil {
 			if debug {
-				fmt.Println("Recovered in f", r)
+				logger.Println("Recovered in f", r)
 			}
 		}
 	}()
@@ -216,13 +229,13 @@ func (s *Server) proxifyStream(reader io.Reader, writer io.Writer, upstream bool
 	for {
 		// read a whole MQTT PDU
 		if debug {
-			fmt.Println("reading a PDU", upstream)
+			logger.Println("reading a PDU", upstream)
 		}
 		buff := new(bytes.Buffer)
 		header, err := r.ReadByte()
 
 		if debug {
-			fmt.Println("got a header byte ", upstream)
+			logger.Println("got a header byte ", upstream)
 		}
 		if eofOrPanic(err) {
 			break
@@ -250,7 +263,7 @@ func (s *Server) proxifyStream(reader io.Reader, writer io.Writer, upstream bool
 		}
 
 		if debug {
-			fmt.Println("pumping the PDU", upstream)
+			logger.Println("pumping the PDU", upstream)
 		}
 		_, err = io.CopyN(buff, r, int64(length))
 		if eofOrPanic(err) {
@@ -261,7 +274,7 @@ func (s *Server) proxifyStream(reader io.Reader, writer io.Writer, upstream bool
 
 		// filter
 		if debug {
-			log.Println("filtering the received PDU", hex.Dump(buff.Bytes()), upstream)
+			logger.Println("filtering the received PDU", hex.Dump(buff.Bytes()), upstream)
 		}
 		var fs []MqttFilter
 		if upstream {
@@ -289,7 +302,7 @@ func (s *Server) proxifyStream(reader io.Reader, writer io.Writer, upstream bool
 	}
 
 	if debug {
-		fmt.Println("EoF")
+		logger.Println("EoF")
 	}
 }
 

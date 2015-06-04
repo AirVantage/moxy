@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+func TestProxy(t *testing.T) {
+
+}
 func TestWalkFilters(t *testing.T) {
 	m := map[string]interface{}{"A": "B"}
 
