@@ -16,7 +16,7 @@ type Plugin struct {
 func NewPlugin(cmdName, socketName string) *Plugin {
 	res := new(Plugin)
 
-	res.unixSocketName = "/tmp" + socketName
+	res.unixSocketName = "/tmp/" + socketName
 	res.Cmd = exec.Command(cmdName, res.unixSocketName)
 
 	// redirect stdout & stderr
@@ -53,6 +53,6 @@ func fwd(in io.Reader, out io.Writer, name string) {
 			}
 			break
 		}
-		out.Write([]byte("AUTH> " + string(line)))
+		out.Write([]byte(name + "> " + string(line)))
 	}
 }

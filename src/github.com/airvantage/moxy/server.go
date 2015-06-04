@@ -3,6 +3,7 @@ package moxy
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git/packets"
 	"io"
@@ -15,11 +16,12 @@ var debug bool = false
 
 // A MQTT proxy server
 type Server struct {
-	trace     bool
-	listenStr string
-	listener  net.Listener
-	auth      Authenticator
-	filters   []MqttFilter
+	trace       bool
+	listenStr   string
+	listener    net.Listener
+	auth        Authenticator
+	filters     []MqttFilter
+	filtersDown []MqttFilter
 }
 
 // NewServer create a new MQTT proxy server, provide the wanted authenticator
@@ -29,6 +31,13 @@ func NewServer(dbg, trace bool, listen string, auth Authenticator, filters []Mqt
 	s.trace = trace
 	s.listenStr = listen
 	s.auth = auth
+	s.filters = filters
+
+	// create a second array for filtering in the downstream way
+	s.filtersDown = make([]MqttFilter, len(filters))
+	for i, v := range filters {
+		s.filtersDown[len(filters)-i-1] = v
+	}
 	return s
 }
 
@@ -37,6 +46,7 @@ func (s *Server) Serve() error {
 
 	if debug {
 		fmt.Println("starting the proxy server")
+		fmt.Println("with ", len(s.filters), "filters")
 	}
 
 	var err error
@@ -91,6 +101,7 @@ func (s *Server) serve(conn net.Conn) {
 		fmt.Println("authentication result", authRes)
 	}
 	if !authRes.Success {
+		// send connack error and close
 		conAck := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
 		conAck.TopicNameCompression = 0
 		conAck.ReturnCode = 4 // bad user/password
@@ -103,14 +114,14 @@ func (s *Server) serve(conn net.Conn) {
 		fmt.Println("starting proxy to", authRes.Host, authRes.Port)
 	}
 
-	err = proxy(conn, authRes.Host, authRes.Port, connect, authRes.Metadata)
+	err = s.proxy(conn, authRes.Host, authRes.Port, connect, authRes.Metadata)
 
 	if err != nil {
 		panic(err)
 	}
 }
 
-func proxy(con net.Conn, host string, port int, origConnect *packets.ConnectPacket, metadata map[string]interface{}) error {
+func (s *Server) proxy(con net.Conn, host string, port int, origConnect *packets.ConnectPacket, metadata map[string]interface{}) error {
 
 	c, err := net.Dial("tcp", host+":"+strconv.Itoa(port))
 	if err != nil {
@@ -136,14 +147,14 @@ func proxy(con net.Conn, host string, port int, origConnect *packets.ConnectPack
 	connect.Qos = origConnect.Qos
 
 	if debug {
-		fmt.Println("sending connect")
+		fmt.Println("connecting to", host, port)
 	}
 	err = connect.Write(c)
 	if err != nil {
 		return err
 	}
 	if debug {
-		fmt.Println("waiting conack")
+		fmt.Println("waiting conack for", host, port)
 	}
 
 	// now response!
@@ -159,31 +170,39 @@ func proxy(con net.Conn, host string, port int, origConnect *packets.ConnectPack
 		return nil
 	}
 	if debug {
-		fmt.Println("Connack", conack)
+		fmt.Println("Connack => ", conack)
 	}
 
-	if conack.ReturnCode != 0 {
-		log.Printf("client connection refused by the broker")
-		conack.Write(c)
-		c.Close()
-		return nil
-	}
-	// connection received !
-	if debug {
-		fmt.Println("Conack", conack)
-	}
-
-	if err = conack.Write(c); err != nil {
+	// write the connack back to the client
+	if err = conack.Write(con); err != nil {
 		return err
 	}
 
-	go proxifyStream(c, con)
-	proxifyStream(con, c)
+	if conack.ReturnCode != 0 {
+		log.Printf("client connection refused by the upstream broker")
+		c.Close()
+		return nil
+	}
+
+	fmt.Println("MQTT connect success for", host, port)
+
+	// downstream proxify
+	go s.proxifyStream(c, con, false, metadata)
+
+	// upstream proxify
+	s.proxifyStream(con, c, true, metadata)
 	return nil
 }
 
-func proxifyStream(reader io.Reader, writer io.Writer) {
+func (s *Server) proxifyStream(reader io.Reader, writer io.Writer, upstream bool, metadata map[string]interface{}) {
 
+	if debug {
+		if upstream {
+			log.Println("proxify upstream")
+		} else {
+			log.Println("proxify downstream")
+		}
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			if debug {
@@ -196,9 +215,15 @@ func proxifyStream(reader io.Reader, writer io.Writer) {
 	w := bufio.NewWriter(writer)
 	for {
 		// read a whole MQTT PDU
+		if debug {
+			fmt.Println("reading a PDU")
+		}
 		buff := new(bytes.Buffer)
 		header, err := r.ReadByte()
 
+		if debug {
+			fmt.Println("got a header byte")
+		}
 		if eofOrPanic(err) {
 			break
 		}
@@ -224,7 +249,9 @@ func proxifyStream(reader io.Reader, writer io.Writer) {
 			}
 		}
 
-		// now consume remaining length bytes
+		if debug {
+			fmt.Println("pumping the PDU")
+		}
 		_, err = io.CopyN(buff, r, int64(length))
 		if eofOrPanic(err) {
 			break
@@ -232,9 +259,21 @@ func proxifyStream(reader io.Reader, writer io.Writer) {
 
 		// TODO debug: print and anaylize the PDU
 
-		// now push the PDU to the remote connection
+		// filter
+		if debug {
+			log.Println("filtering the received PDU", hex.Dump(buff.Bytes()))
+		}
+		var fs []MqttFilter
+		if upstream {
+			fs = s.filters
+		} else {
+			fs = s.filtersDown
+		}
 
-		_, err = buff.WriteTo(w)
+		bin := walkFilters(buff.Bytes(), fs, upstream, metadata)
+
+		// now push the PDU to the remote connection
+		_, err = w.Write(bin)
 		if eofOrPanic(err) {
 			break
 		}
@@ -252,6 +291,13 @@ func proxifyStream(reader io.Reader, writer io.Writer) {
 	if debug {
 		fmt.Println("EoF")
 	}
+}
+
+func walkFilters(in []byte, filters []MqttFilter, upstream bool, metadata map[string]interface{}) []byte {
+	for _, v := range filters {
+		in, _ = v.Filter(in, upstream, metadata)
+	}
+	return in
 }
 
 func eofOrPanic(err error) bool {
