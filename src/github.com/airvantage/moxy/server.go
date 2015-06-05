@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git/packets"
 	"io"
 	"io/ioutil"
@@ -47,8 +46,8 @@ func NewServer(dbg, trace bool, listen string, auth Authenticator, filters []Mqt
 func (s *Server) Serve() error {
 
 	if debug {
-		fmt.Println("starting the proxy server")
-		fmt.Println("with ", len(s.filters), "filters")
+		log.Println("starting the proxy server")
+		log.Println("with ", len(s.filters), "filters")
 	}
 
 	var err error
@@ -60,7 +59,7 @@ func (s *Server) Serve() error {
 	// endless accept loop
 	for {
 		if debug {
-			fmt.Println("accept")
+			log.Println("accepting..")
 		}
 		conn, err := s.listener.Accept()
 		if err != nil {
@@ -73,7 +72,7 @@ func (s *Server) Serve() error {
 
 func (s *Server) serve(conn net.Conn) {
 	if debug {
-		fmt.Printf("new connection: %v\n", conn.RemoteAddr())
+		log.Printf("new connection: %v\n", conn.RemoteAddr())
 	}
 	defer conn.Close()
 
@@ -89,8 +88,8 @@ func (s *Server) serve(conn net.Conn) {
 	}
 
 	if debug {
-		fmt.Println("connect", connect)
-		fmt.Println("calling auth plugin")
+		log.Println("connect", connect)
+		log.Println("calling auth plugin")
 	}
 
 	authRes, err := s.auth.AuthUser(conn.RemoteAddr().String(), connect.Username, string(connect.Password))
@@ -100,7 +99,7 @@ func (s *Server) serve(conn net.Conn) {
 	}
 
 	if debug {
-		fmt.Println("authentication result", authRes)
+		log.Println("authentication result", authRes)
 	}
 	if !authRes.Success {
 		// send connack error and close
@@ -113,15 +112,12 @@ func (s *Server) serve(conn net.Conn) {
 
 	// try to connect & proxy
 	if debug {
-		fmt.Println("starting proxy to", authRes.Host, authRes.Port)
+		log.Println("starting proxy to", authRes.Host, authRes.Port)
 	}
 
 	conServer, err := net.Dial("tcp", authRes.Host+":"+strconv.Itoa(authRes.Port))
 	if err != nil {
 		panic(err)
-	}
-	if debug {
-		fmt.Println("connected")
 	}
 
 	err = s.proxy(conn, conServer, connect, authRes.Metadata)
@@ -138,7 +134,7 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 	if debug {
 		logout = os.Stdout
 	}
-	logger := log.New(logout, "PROXY "+conClient.RemoteAddr().String()+" == "+conServer.RemoteAddr().String(), log.Lshortfile)
+	logger := log.New(logout, conClient.RemoteAddr().String()+"<>"+conServer.RemoteAddr().String()+" ", log.LstdFlags)
 	// write a connect and wait a connack
 
 	connect := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
@@ -209,13 +205,6 @@ func (s *Server) proxifyStream(reader io.Reader,
 	metadata map[string]interface{},
 	logger *log.Logger) {
 
-	if debug {
-		if upstream {
-			logger.Println("proxify upstream")
-		} else {
-			logger.Println("proxify downstream")
-		}
-	}
 	defer func() {
 		if r := recover(); r != nil {
 			if debug {
@@ -262,9 +251,6 @@ func (s *Server) proxifyStream(reader io.Reader,
 			}
 		}
 
-		if debug {
-			logger.Println("pumping the PDU", upstream)
-		}
 		_, err = io.CopyN(buff, r, int64(length))
 		if eofOrPanic(err) {
 			break
