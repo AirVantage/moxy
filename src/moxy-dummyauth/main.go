@@ -69,6 +69,8 @@ func server(c net.Conn) {
 		ErrorMessage string
 		Host         string
 		Port         int
+		Metadata     map[string]interface{}
+		Topics       map[string]uint
 	}
 
 	res.Success = true

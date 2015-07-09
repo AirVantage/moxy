@@ -50,6 +50,7 @@ func (ap *AuthPlugin) AuthUser(connection, user, password string) (moxy.AuthResu
 		Host         string
 		Port         int
 		Metadata     map[string]interface{}
+		Topics       map[string]uint
 	}
 	err = dec.Decode(&result)
 	if err != nil {

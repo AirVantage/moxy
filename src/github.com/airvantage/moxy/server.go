@@ -120,14 +120,14 @@ func (s *Server) serve(conn net.Conn) {
 		panic(err)
 	}
 
-	err = s.proxy(conn, conServer, connect, authRes.Metadata)
+	err = s.proxy(conn, conServer, connect, authRes.Metadata, authRes.Topics)
 
 	if err != nil {
 		panic(err)
 	}
 }
 
-func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.ConnectPacket, metadata map[string]interface{}) error {
+func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.ConnectPacket, metadata map[string]interface{}, topics map[string]uint) error {
 
 	var logout io.Writer = ioutil.Discard
 
@@ -191,6 +191,35 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 
 	logger.Println("MQTT connect success")
 
+	// subscribe to mandatory topics returned by the auth plugin
+	if len(topics) > 0 {
+		keys := make([]string, 0, len(topics))
+		qoss := make([]byte, 0, len(topics))
+		for k, v := range topics {
+			keys = append(keys, k)
+			qoss = append(qoss, byte(v))
+
+		}
+		sub := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
+		sub.Topics = keys
+		sub.Qoss = qoss
+
+		err = sub.Write(conServer)
+		if err != nil {
+			return err
+		}
+		// read the suback
+		sa, err := packets.ReadPacket(conServer)
+		if err != nil {
+			return err
+		}
+		_, ok := sa.(*packets.SubackPacket)
+		if !ok {
+			logger.Println("we want a Suback packet ", cp)
+			conServer.Close()
+			return nil
+		}
+	}
 	// downstream proxify
 	go s.proxifyStream(conServer, conClient, false, metadata, logger)
 
@@ -205,6 +234,11 @@ func (s *Server) proxifyStream(reader io.Reader,
 	metadata map[string]interface{},
 	logger *log.Logger) {
 
+	if upstream {
+		logger = log.New(os.Stdout, "UP "+logger.Prefix(), logger.Flags())
+	} else {
+		logger = log.New(os.Stdout, "DW "+logger.Prefix(), logger.Flags())
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			if debug {
@@ -293,6 +327,7 @@ func (s *Server) proxifyStream(reader io.Reader,
 }
 
 func walkFilters(in []byte, filters []MqttFilter, upstream bool, metadata map[string]interface{}) []byte {
+	log.Println("walking filters upstream=", upstream)
 	for _, v := range filters {
 		in, _ = v.Filter(in, upstream, metadata)
 	}

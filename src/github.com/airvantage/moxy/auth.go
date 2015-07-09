@@ -10,5 +10,8 @@ type AuthResult struct {
 	ErrorMessage string
 	Host         string
 	Port         int
-	Metadata     map[string]interface{}
+	// freestyle metadata which will be passed to other plugins (like filters)
+	Metadata map[string]interface{}
+	// list of topic to be subscribed (with the given QoS level)
+	Topics map[string]uint
 }
