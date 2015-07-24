@@ -7,6 +7,7 @@ import (
 	"github.com/airvantage/moxy"
 	"github.com/airvantage/moxy/plugin/auth"
 	"github.com/airvantage/moxy/plugin/filter"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -39,6 +40,8 @@ func main() {
 		fmt.Println("low level trace of communications enabled")
 	}
 
+	go serveHTTP()
+
 	authPlugin := auth.NewAuthPlugin(authplug)
 
 	filters := []moxy.MqttFilter{}
@@ -59,4 +62,13 @@ func main() {
 	}
 
 	fmt.Println("bye")
+}
+
+func serveHTTP() {
+	http.HandleFunc("/check/", checkHandler)
+	http.ListenAndServe(":8080", nil)
+}
+
+func checkHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "alive")
 }

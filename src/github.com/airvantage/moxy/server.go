@@ -200,6 +200,7 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 			qoss = append(qoss, byte(v))
 
 		}
+		logger.Printf("subscribing to topics: %v\n", keys)
 		sub := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
 		sub.Topics = keys
 		sub.Qoss = qoss
@@ -219,6 +220,7 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 			conServer.Close()
 			return nil
 		}
+		logger.Println("Subscribed")
 	}
 	// downstream proxify
 	go s.proxifyStream(conServer, conClient, false, metadata, logger)
