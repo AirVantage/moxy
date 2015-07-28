@@ -37,7 +37,14 @@ func (fp *FilterPlugin) Filter(inPacket []byte, uplink bool, metadata map[string
 	defer c.Close()
 
 	enc := gob.NewEncoder(c)
-	enc.Encode(call)
+	err = enc.Encode("FILTER")
+	if err != nil {
+		panic(err)
+	}
+	err = enc.Encode(call)
+	if err != nil {
+		panic(err)
+	}
 
 	dec := gob.NewDecoder(c)
 
@@ -52,4 +59,54 @@ func (fp *FilterPlugin) Filter(inPacket []byte, uplink bool, metadata map[string
 	}
 
 	return result.OutPacket, result.Backward
+}
+
+func (fp *FilterPlugin) Connected(metadata map[string]interface{}) {
+	var call struct {
+		Metadata map[string]interface{}
+	}
+
+	c, err := fp.Dial()
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer c.Close()
+
+	enc := gob.NewEncoder(c)
+	err = enc.Encode("CONNECT")
+	if err != nil {
+		panic(err)
+	}
+	err = enc.Encode(call)
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (fp *FilterPlugin) Disconnected(metadata map[string]interface{}) {
+	var call struct {
+		Metadata map[string]interface{}
+	}
+
+	c, err := fp.Dial()
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer c.Close()
+
+	enc := gob.NewEncoder(c)
+	err = enc.Encode("CONNECT")
+	if err != nil {
+		panic(err)
+	}
+	err = enc.Encode(call)
+
+	if err != nil {
+		panic(err)
+	}
 }
