@@ -8,15 +8,19 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
 func main() {
 
 	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "usage: moxy-auth [unix domain socket file]")
+		fmt.Fprintf(os.Stderr, "usage: moxy-dummyauth [unix domain socket file]")
 		os.Exit(-1)
 	}
+
+	log.Println("starting the dummy auth", os.Args[1])
 
 	l, err := net.Listen("unix", os.Args[1])
 
@@ -75,8 +79,7 @@ func server(c net.Conn) {
 
 	res.Success = true
 	res.ErrorMessage = ""
-	res.Host = "iot.eclipse.org"
-	res.Port = 1883
+	res.Host, res.Port = mqttConnectionInfo()
 
 	enc := gob.NewEncoder(c)
 	err = enc.Encode(res)
@@ -84,4 +87,30 @@ func server(c net.Conn) {
 		log.Fatal(err)
 	}
 
+}
+
+// Read connection info from MQTT_URL env variable (eg "localhost:1884").
+// Defaults to "iot.eclipse.org:1883" is variable is not set.
+func mqttConnectionInfo() (string, int) {
+	host, port := "iot.eclipse.org", 1883
+
+	mqttURL := os.Getenv("MQTT_URL")
+	if mqttURL != "" {
+
+		mqttArgs := strings.Split(mqttURL, ":")
+
+		if len(mqttArgs) != 2 {
+			log.Fatal("Bad value for environment variable MQTT_URL, must be populated with the base URL for reaching the backend MQTT broker. ex : \"localhost:1884\"")
+		}
+
+		host = mqttArgs[0]
+
+		var err error
+		port, err = strconv.Atoi(mqttArgs[1])
+		if err != nil {
+			log.Fatal("MQTT_URL port must be a number", err)
+		}
+	}
+
+	return host, port
 }
