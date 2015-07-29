@@ -4,14 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
+	"git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git/packets"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strconv"
-
-	"git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git/packets"
 )
 
 var debug bool = false

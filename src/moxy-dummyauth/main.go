@@ -13,6 +13,11 @@ import (
 	"syscall"
 )
 
+type connInfo struct {
+	Host string
+	Port int
+}
+
 func main() {
 
 	if len(os.Args) != 2 {
@@ -43,18 +48,20 @@ func main() {
 		os.Exit(0)
 	}(sigc)
 
+	connInfo := mqttConnectionInfo()
+
 	for {
 		fd, err := l.Accept()
 		if err != nil {
 			panic(err)
 		}
 
-		go server(fd)
+		go server(fd, connInfo)
 	}
 
 }
 
-func server(c net.Conn) {
+func server(c net.Conn, info connInfo) {
 	var authRequest struct {
 		Password string
 		UserName string
@@ -79,7 +86,7 @@ func server(c net.Conn) {
 
 	res.Success = true
 	res.ErrorMessage = ""
-	res.Host, res.Port = mqttConnectionInfo()
+	res.Host, res.Port = info.Host, info.Port
 
 	enc := gob.NewEncoder(c)
 	err = enc.Encode(res)
@@ -91,7 +98,7 @@ func server(c net.Conn) {
 
 // Read connection info from MQTT_URL env variable (eg "localhost:1884").
 // Defaults to "iot.eclipse.org:1883" is variable is not set.
-func mqttConnectionInfo() (string, int) {
+func mqttConnectionInfo() connInfo {
 	host, port := "iot.eclipse.org", 1883
 
 	mqttURL := os.Getenv("MQTT_URL")
@@ -112,5 +119,6 @@ func mqttConnectionInfo() (string, int) {
 		}
 	}
 
-	return host, port
+	return connInfo{Host: host, Port: port}
+
 }
