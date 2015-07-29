@@ -4,13 +4,17 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/airvantage/moxy"
-	"github.com/airvantage/moxy/plugin/auth"
-	"github.com/airvantage/moxy/plugin/filter"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/airvantage/moxy"
+	"github.com/airvantage/moxy/plugin/auth"
+	"github.com/airvantage/moxy/plugin/filter"
+
+	"golang.org/x/net/websocket"
 )
 
 var listen string
@@ -40,8 +44,6 @@ func main() {
 		fmt.Println("low level trace of communications enabled")
 	}
 
-	go serveHTTP()
-
 	authPlugin := auth.NewAuthPlugin(authplug)
 
 	filters := []moxy.MqttFilter{}
@@ -56,6 +58,8 @@ func main() {
 
 	s := moxy.NewServer(debug, trace, listen, authPlugin, filters)
 
+	go serveHTTP(s)
+
 	if err := s.Serve(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(-1)
@@ -64,11 +68,22 @@ func main() {
 	fmt.Println("bye")
 }
 
-func serveHTTP() {
+func serveHTTP(s *moxy.Server) {
 	http.HandleFunc("/check/", checkHandler)
-	http.ListenAndServe(":8080", nil)
+	http.Handle("/mqtt", websocket.Handler(makeWsHandler(s)))
+
+	http.ListenAndServe(":8081", nil)
 }
 
 func checkHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "alive")
+}
+
+// Make a websocket handler that proxies all mqtt content in binary frames
+func makeWsHandler(s *moxy.Server) func(ws *websocket.Conn) {
+	return func(ws *websocket.Conn) {
+		ws.PayloadType = websocket.BinaryFrame
+		log.Println("Accepted websocket connection", ws)
+		s.ServeConn(ws)
+	}
 }
