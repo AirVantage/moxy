@@ -66,11 +66,12 @@ func (s *Server) Serve() error {
 			return err
 		}
 		// start serving goroutine
-		go s.serve(conn)
+		go s.ServeConn(conn)
 	}
 }
 
-func (s *Server) serve(conn net.Conn) {
+// ServeConn serve as aproxy, using an existing connection
+func (s *Server) ServeConn(conn net.Conn) {
 	if debug {
 		log.Printf("new connection: %v\n", conn.RemoteAddr())
 	}
