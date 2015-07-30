@@ -21,3 +21,22 @@ gb build all
 ```
 
 And voilà..
+
+Testing
+-------
+
+* Start mosquitto container :
+~~~
+docker run -d -p 1884:1883 --user=mosquitto --name=mosquitto airvantage/mosquitto
+~~~
+* Build and start moxy with dumy authentication plugin
+~~~
+gb build all
+./bin/moxy -auth=bin/moxy-dummyauth -t -v
+~~~
+* Run python tests (in another terminal)
+~~~
+python3 ./test/interoperability/client_test.py --hostname localhost --port 1883 -z -d
+~~~
+
+

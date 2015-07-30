@@ -4,6 +4,7 @@
 set -e
 
 ## Export parameters
+### FIXME(pht) use variables for reporting
 export TAG=$(echo $BRANCH | sed 's#.*/##') #Keep the last part of the branch name for docker tags
 export TAG="$(echo -n "$BRANCH" | md5sum | awk '{ print $1 }')"
 # JIRA isssue (extracted from branch name)
@@ -51,6 +52,6 @@ test_results=$?
 ## Kill moxy
 kill $moxy_pid || true
 
-## TODO(pht) report tests results somewhere ?
+## TODO(pht) format tests results
 echo "Return $test_results"
 exit $test_results
