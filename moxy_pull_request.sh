@@ -38,7 +38,7 @@ gb build all
     echo "Starting moxy"
     killall moxy || true
     killall moxy-dummyauth || true
-    rm /tmp/auth.sock
+    rm -rf /tmp/auth.sock
     ./bin/moxy -auth=bin/moxy-dummyauth -t -v > /dev/null
 ) & moxy_pid=$!
 echo "Moxy running with pid " $moxy_pid
