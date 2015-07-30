@@ -2,3 +2,4 @@ bin/*
 pkg/*
 vendor/pkg/*
 **/*.swp
+tests.log
