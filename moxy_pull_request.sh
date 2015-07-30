@@ -44,8 +44,11 @@ echo "Moxy running with pid " $moxy_pid
 ## Run tests
 echo "Running tests"
 python3 ./test/interoperability/client_test.py --hostname localhost --port 1883 -z -d > tests.log
+test_results=$?
 
 ## Kill moxy
 kill $moxy_pid || true
 
 ## TODO(pht) report tests results somewhere ?
+echo "Return $test_results"
+exit $test_results

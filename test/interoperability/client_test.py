@@ -440,5 +440,21 @@ if __name__ == "__main__":
   if run_dollar_topics_test:
     tests.append(dollar_topics_test)
 
+  # Boolean list of results for each iteration
+  iteration_results=[]
+
   for i in range(iterations):
-    print("test suite", "succeeded" if False not in [test() for test in tests] else "failed")
+    iteration_results.append(False not in [test() for test in tests])
+
+  for i in range(iterations):
+    if (iteration_results[i]):
+      print("Iteration ", i, " succedded")
+    else:
+      print("Iteration ", i, " failed")
+
+  if (False in iteration_results):
+    print("Al least one test iteration failed")
+    exit(1)
+  else:
+    print("All iterations succeded")
+    exit(0)
