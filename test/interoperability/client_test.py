@@ -423,7 +423,7 @@ if __name__ == "__main__":
            retained_message_test,
            offline_message_queueing_test,
            # FIXME(pht) will message is know to fail (without a panic)
-           # will_message_test,
+           will_message_test,
            overlapping_subscriptions_test,
            # FIXME(pht) keepalive test fails, also because of the will message
            # keepalive_test,

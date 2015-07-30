@@ -36,8 +36,8 @@ gb build all
 ## Run moxy in a subshell
 (
     echo "Starting moxy"
-    killall moxy
-    killall moxy-dummyauth
+    killall moxy || true
+    killall moxy-dummyauth || true
     rm /tmp/auth.sock
     ./bin/moxy -auth=bin/moxy-dummyauth -t -v > /dev/null
 ) & moxy_pid=$!
