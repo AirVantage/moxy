@@ -5,6 +5,8 @@
 ~~~
 cd moxy
 gb build all
+export BE_URL=localhost:8080
+export MQTT_URL=localhost:1884
 ./bin/moxy -auth=bin/moxy-dummyauth -t -v
 ~~~
 3. Run static server for example files:

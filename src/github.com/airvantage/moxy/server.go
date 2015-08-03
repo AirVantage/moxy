@@ -157,7 +157,7 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 	}
 	err := connect.Write(conServer)
 	if err != nil {
-		logger.Println("Error writing connect", connect, "to conn", conServer);
+		// logger.Println("Error writing connect", connect, "to conn", conServer)
 		return err
 	}
 	if debug {
@@ -167,7 +167,7 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 	// now response!
 	cp, err := packets.ReadPacket(conServer)
 	if err != nil {
-		logger.Println("Error reading connect response from conServer", conServer);
+		// logger.Println("Error reading connect response from conServer", conServer)
 		return err
 	}
 
@@ -183,7 +183,7 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 
 	// write the connack back to the client
 	if err = conack.Write(conClient); err != nil {
-		logger.Println("error while writing conack pack", conack,"on client", conClient);
+		// logger.Println("error while writing conack pack", conack, "on client", conClient)
 		return err
 	}
 
@@ -211,13 +211,13 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 
 		err = sub.Write(conServer)
 		if err != nil {
-			logger.Println("Error while writing Subscribe package " , sub ,"on connection", conServer)
+			// logger.Println("Error while writing Subscribe package ", sub, "on connection", conServer)
 			return err
 		}
 		// read the suback
 		sa, err := packets.ReadPacket(conServer)
 		if err != nil {
-			logger.Println("Error while reading packets on connection", conServer)
+			// logger.Println("Error while reading packets on connection", conServer)
 			return err
 		}
 		_, ok := sa.(*packets.SubackPacket)
@@ -302,7 +302,7 @@ func (s *Server) proxifyStream(reader io.Reader,
 
 		// filter
 		if debug {
-			logger.Println("filtering the received PDU", hex.Dump(buff.Bytes()), upstream)
+			logger.Print("filtering the received PDU\n", hex.Dump(buff.Bytes()), upstream)
 		}
 		var fs []MqttFilter
 		if upstream {
@@ -316,6 +316,7 @@ func (s *Server) proxifyStream(reader io.Reader,
 		// now push the PDU to the remote connection
 		_, err = w.Write(bin)
 		if eofOrPanic(err) {
+			logger.Print("Unable to print PDU to remote connection", err)
 			break
 		}
 

@@ -69,11 +69,13 @@ def cleanup():
   curclient.subscribe(["#"], [0])
   time.sleep(2) # wait for all retained messages to arrive
   for message in callback.messages:
+    print("!!Receiving message", message)
     if message[3]: # retained flag
       print("deleting retained message for topic", message[0])
       curclient.publish(message[0], b"", 0, retained=True)
   curclient.disconnect()
   time.sleep(.1)
+
   print("clean up finished")
 
 def usage():
@@ -422,20 +424,17 @@ if __name__ == "__main__":
   tests = [basic_test,
            retained_message_test,
            offline_message_queueing_test,
-           # FIXME(pht) will message is know to fail (without a panic)
-           # will_message_test,
+           will_message_test,
            overlapping_subscriptions_test,
-           # FIXME(pht) keepalive test fails, also because of the will message
-           # keepalive_test,
+           keepalive_test,
            redelivery_on_reconnect_test
   ]
 
   if run_zero_length_clientid_test:
-     tests.append(zero_length_clientid_test)
+    tests.append(zero_length_clientid_test)
 
-  # This is know to fail too
-  # if run_subscribe_failure_test:
-  #   tests.append(subscribe_failure_test)
+  if run_subscribe_failure_test:
+    tests.append(subscribe_failure_test)
 
   if run_dollar_topics_test:
     tests.append(dollar_topics_test)
