@@ -47,7 +47,7 @@ func (s *Server) Serve() error {
 
 	if debug {
 		log.Println("starting the proxy server")
-		log.Println("with ", len(s.filters), "filters")
+		log.Println("with", len(s.filters), "filters")
 	}
 
 	var err error
@@ -121,6 +121,7 @@ func (s *Server) ServeConn(conn net.Conn) {
 		panic(err)
 	}
 
+	authRes.Metadata["username"] = connect.Username
 	err = s.proxy(conn, conServer, connect, authRes.Metadata, authRes.Topics)
 
 	if err != nil {
@@ -223,11 +224,23 @@ func (s *Server) proxy(conClient, conServer net.Conn, origConnect *packets.Conne
 		}
 		logger.Println("Subscribed")
 	}
+
+	// connect filters
+	for _, v := range s.filters {
+		v.Connected(metadata)
+	}
+
 	// downstream proxify
 	go s.proxifyStream(conServer, conClient, false, metadata, logger)
 
 	// upstream proxify
 	s.proxifyStream(conClient, conServer, true, metadata, logger)
+
+	// disconnect filters
+	for _, v := range s.filtersDown {
+		v.Disconnected(metadata)
+	}
+
 	return nil
 }
 
