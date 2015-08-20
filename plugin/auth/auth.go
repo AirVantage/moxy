@@ -3,8 +3,9 @@ package auth
 
 import (
 	"encoding/gob"
-	"github.com/airvantage/moxy"
-	"github.com/airvantage/moxy/plugin"
+
+	"github.com/AirVantage/moxy"
+	"github.com/AirVantage/moxy/plugin"
 )
 
 // A plugin for authentication, implements the Authenticator interface

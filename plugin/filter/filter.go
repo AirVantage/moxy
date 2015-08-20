@@ -2,7 +2,8 @@ package filter
 
 import (
 	"encoding/gob"
-	"github.com/airvantage/moxy/plugin"
+
+	"github.com/AirVantage/moxy/plugin"
 )
 
 // A plugin for filtering MQTT packets

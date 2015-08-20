@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
-	"git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git/packets"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strconv"
+
+	"git.eclipse.org/gitroot/paho/org.eclipse.paho.mqtt.golang.git/packets"
 )
 
 var debug bool = false
@@ -267,15 +268,9 @@ func (s *Server) proxifyStream(reader io.Reader,
 	w := bufio.NewWriter(writer)
 	for {
 		// read a whole MQTT PDU
-		if debug {
-			logger.Println("reading a PDU", upstream)
-		}
 		buff := new(bytes.Buffer)
 		header, err := r.ReadByte()
 
-		if debug {
-			logger.Println("got a header byte ", upstream)
-		}
 		if eofOrPanic(err) {
 			break
 		}

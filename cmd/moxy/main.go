@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/airvantage/moxy"
-	"github.com/airvantage/moxy/plugin/auth"
-	"github.com/airvantage/moxy/plugin/filter"
+	"github.com/AirVantage/moxy"
+	"github.com/AirVantage/moxy/plugin/auth"
+	"github.com/AirVantage/moxy/plugin/filter"
 
 	"golang.org/x/net/websocket"
 )

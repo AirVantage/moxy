@@ -7,17 +7,11 @@ A general purpose reverse proxy for MQTT
 Compilation
 -----------
 
-You need [Go 1.4](https://golang.org)
+You need [Go 1.5](https://golang.org)
 
-You need to install GB:
+You need to activate experimental venoring support:
 ```
-go get github.com/constabulary/gb/...
-```
-
-run
-
-```
-gb build all
+export GO15VENDOREXPERIMENT=1
 ```
 
-And voilà..
+And voilà, go into cmd driectory for 'go build' the different executable.
